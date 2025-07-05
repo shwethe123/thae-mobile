@@ -1,7 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Image,
@@ -13,21 +13,20 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import attractions from '../../data/attractions.json';
 import itineraries from '../../data/itineraries.json';
-
 
 const ItineraryScreen = () => {
   const router = useRouter();
-  const [imageUri, setImageUri ] = useState(null);
+
+  const [imageUri, setImageUri] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [attractionsData, setAttractionsData] = useState([]);
   const [form, setForm] = useState({
     title: '',
     type: '',
     latitude: '',
     longitude: '',
     description: '',
-    image: '',
   });
 
   const handleChange = (key, value) => {
@@ -65,7 +64,7 @@ const ItineraryScreen = () => {
 
       const response = await fetch('http://192.168.16.32:5000/api/attractions', {
         method: 'POST',
-        body: formData, // ✅ no headers here
+        body: formData,
       });
 
       const contentType = response.headers.get('content-type');
@@ -76,29 +75,47 @@ const ItineraryScreen = () => {
       }
 
       if (contentType.includes('application/json')) {
-        const data = JSON.parse(text);
         Alert.alert('Success', 'Attraction inserted');
       } else {
         throw new Error('Expected JSON response but got something else');
       }
 
       setModalVisible(false);
-      setForm({ title: '', type: '', latitude: '', longitude: '', description: '' });
+      setForm({
+        title: '',
+        type: '',
+        latitude: '',
+        longitude: '',
+        description: '',
+      });
       setImageUri(null);
     } catch (error) {
       Alert.alert('Error', error.message);
     }
   };
 
+  useEffect(() => {
+    const fetchAttractions = async () => {
+      try {
+        const res = await fetch('http://192.168.16.32:5000/api/attractions');
+        const data = await res.json();
+        setAttractionsData(data);
+      } catch (err) {
+        Alert.alert('Error', 'Failed to fetch attractions');
+      }
+    };
+    fetchAttractions();
+  }, []);
+
   const renderAttraction = (id) => {
-    const place = attractions.find((item) => item.id === id);
+    const place = attractionsData.find((item) => item._id === id || item.id === id);
     if (!place) return null;
 
     return (
       <TouchableOpacity
-        key={id}
+        key={place._id || place.id}
         style={styles.card}
-        onPress={() => router.push(`/attraction/${place.id}`)}
+        onPress={() => router.push(`/attraction/${place._id || place.id}`)}
       >
         <Image source={{ uri: place.image }} style={styles.image} />
         <View style={styles.info}>
@@ -119,11 +136,7 @@ const ItineraryScreen = () => {
         {itineraries['2day'].map(renderAttraction)}
       </ScrollView>
 
-      {/* Inset Floating Button */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => setModalVisible(true)}
-      >
+      <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>
         <Text style={styles.fabText}>＋ Inset</Text>
       </TouchableOpacity>
 
@@ -131,7 +144,7 @@ const ItineraryScreen = () => {
       <Modal visible={modalVisible} animationType="slide">
         <ScrollView contentContainerStyle={styles.modalContainer}>
           <Text style={styles.modalTitle}>Inset New Attraction</Text>
-          {['title', 'type', 'latitude', 'longitude', 'description' ].map((field) => (
+          {['title', 'type', 'latitude', 'longitude', 'description'].map((field) => (
             <TextInput
               key={field}
               placeholder={`Enter ${field}`}
@@ -148,26 +161,26 @@ const ItineraryScreen = () => {
           </TouchableOpacity>
 
           {imageUri && (
-            <Image source={{ uri: imageUri }} style={{ height: 200, marginBottom: 12, borderRadius: 10 }} />
+            <Image
+              source={{ uri: imageUri }}
+              style={{ height: 200, marginBottom: 12, borderRadius: 10 }}
+            />
           )}
-          <TouchableOpacity onPress={handleSubmit} >
+
+          <TouchableOpacity onPress={handleSubmit}>
             <LinearGradient
               colors={['#0496ff', '#90caf9']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.actionBtn}
             >
-              <Text style={styles.pickBtnText}> Submit</Text>
+              <Text style={styles.pickBtnText}>Submit</Text>
             </LinearGradient>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.actionBtn}>
-            <Text style={styles.pickBtnText}>
-              Cancel
-            </Text>
-          </TouchableOpacity>
 
-          {/* <Button title="Submit" onPress={handleSubmit} /> */}
-          {/* <Button title="Cancel" color="gray" onPress={() => setModalVisible(false)} /> */}
+          <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.actionBtn}>
+            <Text style={styles.pickBtnText}>Cancel</Text>
+          </TouchableOpacity>
         </ScrollView>
       </Modal>
     </View>
@@ -268,12 +281,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pickBtnText: {
-    fontWeight: '600',
-    fontSize: 15,
-    color: '#264653',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   actionBtn: {
-    backgroundColor: '#eff2f1',
+    backgroundColor: '#dbe4ee',
     paddingVertical: 14,
     borderRadius: 10,
     marginBottom: 14,
