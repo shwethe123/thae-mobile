@@ -1,4 +1,6 @@
+
+
 {
-  "1day": ["6868ebea4a77e11b57982ad6", "nightmarket"],
-  "2day": ["6868ebea4a77e11b57982ad6", "viewpoint", "market", "hotelpoint"]
+  "1day": ["6868ebea4a77e11b57982ad6", "6868d66c4a77e11b57982ad4"],
+  "2day": ["6868d66c4a77e11b57982ad4", "6868ebea4a77e11b57982ad6", "6869d8e049d5c431a81c6da5", "hotelpoint"]
 }

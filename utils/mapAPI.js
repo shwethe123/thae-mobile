@@ -1,5 +1,8 @@
 // utils/api.js
 export const getAttractions = async () => {
-  const res = await fetch('http://192.168.16.32:5000/api/attractions');
+  const res = await fetch('https://h-submit-backend-shwethe.onrender.com/api/attractions');
+  if (!res.ok) {
+    throw new Error('Failed to fetch attractions');
+  }
   return await res.json();
 };

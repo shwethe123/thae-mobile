@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BlurView } from 'expo-blur';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -7,13 +8,15 @@ import {
   Alert,
   Dimensions,
   Image,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import attractions from '../../data/attractions';
+import { getAttractions } from '../../utils/mapAPI';
 
 const { width } = Dimensions.get('window');
 
@@ -23,32 +26,68 @@ const MapScreen = () => {
   const [loading, setLoading] = useState(true);
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [filterType, setFilterType] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [attractions, setAttractions] = useState([]);
 
   const router = useRouter();
 
   useEffect(() => {
     (async () => {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Location permission is required.');
-        return;
-      }
+      try {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Denied', 'Location permission is required.');
+          return;
+        }
 
-      let loc = await Location.getCurrentPositionAsync({});
-      setLocation(loc);
-      setMapRegion({
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      });
-      setLoading(false);
+        const loc = await Location.getCurrentPositionAsync({});
+        setLocation(loc);
+        setMapRegion({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        });
+
+        const data = await getAttractions();
+        if (!Array.isArray(data)) throw new Error('Invalid data format');
+        setAttractions(data);
+      } catch (err) {
+        console.error('MAP LOAD ERROR:', err);
+        Alert.alert('Error', 'Failed to load map data');
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
-  const filteredAttractions = attractions.filter(
-    (place) => !filterType || place.type === filterType
-  );
+  const handleSearchChange = (text) => {
+    setSearchQuery(text);
+    if (text.trim() === '') {
+      setFilterType(null); // Reset filter if search is empty
+    } else {
+      const lower = text.toLowerCase();
+      const matchedType = ['Pagoda', 'Viewpoint', 'Hotel', 'day Market', 'ktv', 'Night bar'].find(
+        (type) => type.toLowerCase().includes(lower)
+      );
+      setFilterType(matchedType || null);
+    }
+  };
+
+  const handleFilterPress = (type) => {
+    const selected = type === 'All' ? null : type;
+    setFilterType(selected);
+    setSearchQuery(selected || '');
+  };
+
+  const filteredAttractions = attractions.filter((place) => {
+    const matchType = !filterType || place.type === filterType;
+    const matchSearch =
+      searchQuery.trim() === '' ||
+      place.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      place.type.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchType && matchSearch;
+  });
 
   const onMarkerPress = (place) => {
     setSelectedPlace(place);
@@ -64,9 +103,8 @@ const MapScreen = () => {
     try {
       const existing = await AsyncStorage.getItem('saved_places');
       const saved = existing ? JSON.parse(existing) : [];
-      const alreadySaved = saved.some((p) => p.id === place.id);
+      const alreadySaved = saved.some((p) => p._id === place._id || p.id === place.id);
       if (alreadySaved) return;
-
       const updated = [...saved, place];
       await AsyncStorage.setItem('saved_places', JSON.stringify(updated));
       Alert.alert('Saved!', 'Place added to your saved list.');
@@ -86,48 +124,19 @@ const MapScreen = () => {
 
   return (
     <View style={{ flex: 1 }}>
-      {/* Filter Buttons */}
-      <View style={styles.filterRow}>
-        {['All', 'Pagoda', 'Viewpoint', 'Night Market'].map((type) => (
-          <TouchableOpacity
-            key={type}
-            onPress={() => setFilterType(type === 'All' ? null : type)}
-          >
-            <Text
-              style={[
-                styles.filterBtn,
-                filterType === type || (type === 'All' && !filterType)
-                  ? styles.activeFilter
-                  : null,
-              ]}
-            >
-              {type}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Map View */}
       <MapView style={styles.map} region={mapRegion} showsUserLocation>
-        {/* User Location */}
         <Marker
           coordinate={{
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
           }}
           title="You are here"
-          description="Your current location"
           pinColor="blue"
         />
-
-        {/* Attraction Markers */}
         {filteredAttractions.map((place) => (
           <Marker
-            key={place.id}
-            coordinate={{
-              latitude: place.latitude,
-              longitude: place.longitude,
-            }}
+            key={place._id || place.id}
+            coordinate={{ latitude: place.latitude, longitude: place.longitude }}
             title={place.title}
             description={place.type}
             pinColor={
@@ -144,7 +153,33 @@ const MapScreen = () => {
         ))}
       </MapView>
 
-      {/* Tap outside to close Info Card */}
+      {/* Overlay UI */}
+      <BlurView intensity={60} tint="light" style={styles.overlayContainer}>
+        <TextInput
+          placeholder=" Search places..."
+          value={searchQuery}
+          onChangeText={handleSearchChange}
+          style={styles.searchBox}
+        />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+          {['All', 'Pagoda', 'Viewpoint', 'Hotel', 'day Market', 'ktv', 'Night bar'].map((type) => (
+            <TouchableOpacity key={type} onPress={() => handleFilterPress(type)}>
+              <Text
+                style={[
+                  styles.filterBtn,
+                  filterType === type || (type === 'All' && !filterType)
+                    ? styles.activeFilter
+                    : null,
+                ]}
+              >
+                {type}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </BlurView>
+
+      {/* Info Card */}
       {selectedPlace && (
         <TouchableOpacity
           style={StyleSheet.absoluteFill}
@@ -152,23 +187,16 @@ const MapScreen = () => {
           onPress={() => setSelectedPlace(null)}
         >
           <View style={styles.bottomCard}>
-            <Image
-              source={{ uri: selectedPlace.image }}
-              style={styles.cardImage}
-            />
+            <Image source={{ uri: selectedPlace.image }} style={styles.cardImage} />
             <Text style={styles.cardTitle}>{selectedPlace.title}</Text>
             <Text style={styles.cardDesc}>{selectedPlace.description}</Text>
-
             <TouchableOpacity
-              onPress={() => router.push(`/attraction/${selectedPlace.id}`)}
+              onPress={() => router.push(`/attraction/${selectedPlace._id || selectedPlace.id}`)}
             >
               <Text style={styles.linkText}>📍 See more</Text>
             </TouchableOpacity>
-
             <TouchableOpacity onPress={() => savePlace(selectedPlace)}>
-              <Text style={[styles.linkText, { color: '#e63946' }]}>
-                💾 Save
-              </Text>
+              <Text style={[styles.linkText, { color: '#e63946' }]}>💾 Save</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -178,6 +206,7 @@ const MapScreen = () => {
 };
 
 export default MapScreen;
+
 const styles = StyleSheet.create({
   map: {
     flex: 1,
@@ -187,24 +216,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  filterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+  overlayContainer: {
+    position: 'absolute',
+    top: 40,
+    left: -10,
+    right: -10,
     padding: 10,
-    backgroundColor: '#fff',
-    borderBottomColor: '#eee',
-    borderBottomWidth: 1,
+    borderRadius: 16,
+  },
+  searchBox: {
+    height: 40,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    fontSize: 14,
+    borderColor: '#ddd',
+    borderWidth: 0.6,
+    marginBottom: 10,
+    marginHorizontal: 10,
+  },
+  filterScroll: {
+    flexDirection: 'row',
+    paddingHorizontal: 10,
   },
   filterBtn: {
     paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     borderRadius: 20,
-    backgroundColor: '#eee',
+    backgroundColor: 'rgba(255,255,255,0.6)',
     color: '#333',
     fontWeight: '500',
+    marginRight: 8,
   },
   activeFilter: {
-    backgroundColor: '#2a9d8f',
+    backgroundColor: '#3a86ff',
     color: '#fff',
   },
   bottomCard: {

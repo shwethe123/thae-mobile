@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   Modal,
@@ -11,9 +12,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
-import itineraries from '../../data/itineraries.json';
 
 const ItineraryScreen = () => {
   const router = useRouter();
@@ -21,6 +21,7 @@ const ItineraryScreen = () => {
   const [imageUri, setImageUri] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [attractionsData, setAttractionsData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
     title: '',
     type: '',
@@ -29,121 +30,141 @@ const ItineraryScreen = () => {
     description: '',
   });
 
-  const handleChange = (key, value) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+  const fetchAttractions = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('http://192.168.16.32:5000/api/attractions');
+      const data = await res.json();
+      setAttractionsData(data);
+    } catch {
+      Alert.alert('Error', 'Failed to fetch attractions');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    fetchAttractions();
+  }, []);
+
+  const incrementView = async (id) => {
+    try {
+      await fetch(`http://192.168.16.32:5000/api/attractions/${id}/view`, {
+        method: 'POST',
+      });
+      fetchAttractions();
+    } catch (e) {
+      console.warn('Failed to increment viewCount', e);
+    }
+  };
+
+  const handleChange = (key, value) => setForm((p) => ({ ...p, [key]: value }));
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 1,
     });
-    if (!result.canceled) {
-      setImageUri(result.assets[0].uri);
-    }
+    if (!result.canceled) setImageUri(result.assets[0].uri);
   };
 
   const handleSubmit = async () => {
     try {
       const formData = new FormData();
-      formData.append('title', form.title);
-      formData.append('type', form.type);
-      formData.append('latitude', form.latitude);
-      formData.append('longitude', form.longitude);
-      formData.append('description', form.description);
-
+      Object.entries(form).forEach(([k, v]) => formData.append(k, v));
       if (imageUri) {
         const fileName = imageUri.split('/').pop();
-        const fileType = fileName.split('.').pop();
-        formData.append('image', {
-          uri: imageUri,
-          name: fileName,
-          type: `image/${fileType}`,
-        });
+        const ext = fileName.split('.').pop();
+        formData.append('image', { uri: imageUri, name: fileName, type: `image/${ext}` });
       }
 
-      const response = await fetch('http://192.168.16.32:5000/api/attractions', {
+      const resp = await fetch('http://192.168.16.32:5000/api/attractions', {
         method: 'POST',
         body: formData,
       });
-
-      const contentType = response.headers.get('content-type');
-      const text = await response.text();
-
-      if (!response.ok) {
-        throw new Error(`Server error: ${text}`);
-      }
-
-      if (contentType.includes('application/json')) {
-        Alert.alert('Success', 'Attraction inserted');
-      } else {
-        throw new Error('Expected JSON response but got something else');
-      }
-
+      const txt = await resp.text();
+      if (!resp.ok) throw new Error(txt);
+      Alert.alert('Success', 'Attraction inserted');
       setModalVisible(false);
-      setForm({
-        title: '',
-        type: '',
-        latitude: '',
-        longitude: '',
-        description: '',
-      });
+      setForm({ title: '', type: '', latitude: '', longitude: '', description: '' });
       setImageUri(null);
-    } catch (error) {
-      Alert.alert('Error', error.message);
+      fetchAttractions();
+    } catch (err) {
+      Alert.alert('Error', err.message);
     }
   };
 
-  useEffect(() => {
-    const fetchAttractions = async () => {
-      try {
-        const res = await fetch('http://192.168.16.32:5000/api/attractions');
-        const data = await res.json();
-        setAttractionsData(data);
-      } catch (err) {
-        Alert.alert('Error', 'Failed to fetch attractions');
-      }
-    };
-    fetchAttractions();
-  }, []);
+  const renderAttraction = (place) => (
+    <TouchableOpacity
+      key={place._id}
+      style={styles.card}
+      onPress={() => {
+        incrementView(place._id);
+        router.push(`/attraction/${place._id}`);
+      }}
+    >
+      <Image source={{ uri: place.image }} style={styles.image} />
+      <View style={styles.info}>
+        <Text style={styles.title}>{place.title}</Text>
+        <Text style={styles.type}>{place.type}</Text>
+      </View>
+    </TouchableOpacity>
+  );
 
-  const renderAttraction = (id) => {
-    const place = attractionsData.find((item) => item._id === id || item.id === id);
-    if (!place) return null;
-
+  if (loading) {
     return (
-      <TouchableOpacity
-        key={place._id || place.id}
-        style={styles.card}
-        onPress={() => router.push(`/attraction/${place._id || place.id}`)}
-      >
-        <Image source={{ uri: place.image }} style={styles.image} />
-        <View style={styles.info}>
-          <Text style={styles.title}>{place.title}</Text>
-          <Text style={styles.type}>{place.type}</Text>
-        </View>
-      </TouchableOpacity>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2a9d8f" />
+        <Text style={{ marginTop: 12, fontSize: 16 }}>Loading attractions...</Text>
+      </View>
     );
-  };
+  }
 
   return (
     <View style={{ flex: 1 }}>
       <ScrollView style={styles.container}>
-        <Text style={styles.header}>🗓 1-Day Trip</Text>
-        {itineraries['1day'].map(renderAttraction)}
+        {/* 🔥 Popular Section */}
+        {attractionsData.length > 0 && (
+          <View style={styles.popularCard}>
+            <Text style={styles.popularHeader}>🔥 Popular Attractions</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {attractionsData
+                .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+                .slice(0, 5)
+                .map((place) => (
+                  <TouchableOpacity
+                    key={place._id}
+                    style={styles.popularItem}
+                    onPress={() => {
+                      incrementView(place._id);
+                      router.push(`/attraction/${place._id}`);
+                    }}
+                  >
+                    <Image source={{ uri: place.image }} style={styles.popularImage} />
+                    <Text style={styles.popularTitle}>{place.title}</Text>
+                    <Text style={styles.popularType}>
+                      {place.type} • {(place.viewCount || 0)} views
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+            </ScrollView>
+          </View>
+        )}
 
-        <Text style={styles.header}>🗓 2-Day Trip</Text>
-        {itineraries['2day'].map(renderAttraction)}
+        {/* 📍 All List */}
+        <Text style={styles.header}>📍 All Attractions</Text>
+        {attractionsData.map(renderAttraction)}
       </ScrollView>
 
+      {/* ➕ Insert Button */}
       <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>
-        <Text style={styles.fabText}>＋ Inset</Text>
+        <Text style={styles.fabText}>＋ Insert</Text>
       </TouchableOpacity>
 
-      {/* Modal */}
+      {/* 📥 Modal Insert Form */}
       <Modal visible={modalVisible} animationType="slide">
         <ScrollView contentContainerStyle={styles.modalContainer}>
-          <Text style={styles.modalTitle}>Inset New Attraction</Text>
+          <Text style={styles.modalTitle}>Insert New Attraction</Text>
           {['title', 'type', 'latitude', 'longitude', 'description'].map((field) => (
             <TextInput
               key={field}
@@ -189,11 +210,53 @@ const ItineraryScreen = () => {
 
 export default ItineraryScreen;
 
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
+  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
+  loadingContainer: {
+    flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff'
+  },
+  popularCard: {
+    marginBottom: 20,
+    backgroundColor: '#fff0ea',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+  },
+  popularHeader: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 10,
+    marginBottom: 8,
+    color: '#e63946',
+  },
+  popularItem: {
+    width: 160,
+    marginRight: 12,
     backgroundColor: '#fff',
+    borderRadius: 10,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    marginBottom: 8,
+  },
+  popularImage: { width: '100%', height: 100 },
+  popularTitle: {
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginTop: 6,
+    marginHorizontal: 8,
+    color: '#264653',
+  },
+  popularType: {
+    fontSize: 12,
+    color: '#999',
+    marginHorizontal: 8,
+    marginTop: 2,
+    paddingBottom: 5
   },
   header: {
     fontSize: 20,
@@ -207,29 +270,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  image: {
-    width: 100,
-    height: 100,
-  },
-  info: {
-    flex: 1,
-    padding: 10,
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#264653',
-  },
-  type: {
-    color: '#888',
-    marginTop: 4,
-  },
+  image: { width: 100, height: 100 },
+  info: { flex: 1, padding: 10, justifyContent: 'center' },
+  title: { fontSize: 16, fontWeight: 'bold', color: '#264653' },
+  type: { color: '#888', marginTop: 4 },
   fab: {
     position: 'absolute',
     bottom: 24,
@@ -238,21 +284,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 30,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 3 },
     elevation: 5,
   },
-  fabText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  modalContainer: {
-    padding: 24,
-    paddingBottom: 80,
-    backgroundColor: '#fff',
-  },
+  fabText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  modalContainer: { padding: 24, paddingBottom: 80 },
   modalTitle: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -268,9 +303,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontSize: 15,
     backgroundColor: '#fdfdfd',
-    // shadowColor: '#000',
-    // shadowOpacity: 0.05,
-    // shadowOffset: { width: 0, height: 1 },
     elevation: 1,
   },
   pickBtn: {
@@ -280,19 +312,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     alignItems: 'center',
   },
-  pickBtnText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  pickBtnText: { fontSize: 16, fontWeight: 'bold' },
   actionBtn: {
     backgroundColor: '#dbe4ee',
     paddingVertical: 14,
     borderRadius: 10,
     marginBottom: 14,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
     elevation: 2,
-  }
+  },
 });
