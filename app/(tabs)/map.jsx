@@ -2,7 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import Fuse from 'fuse.js';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -61,14 +62,20 @@ const MapScreen = () => {
     })();
   }, []);
 
+  // ✅ Extract unique types from data dynamically
+  const attractionTypes = useMemo(() => {
+    const types = attractions.map((place) => place.type).filter(Boolean);
+    return ['All', ...Array.from(new Set(types))];
+  }, [attractions]);
+
   const handleSearchChange = (text) => {
     setSearchQuery(text);
-    if (text.trim() === '') {
-      setFilterType(null); // Reset filter if search is empty
+    const lower = text.toLowerCase().trim();
+    if (lower === '' || lower === 'all') {
+      setFilterType(null);
     } else {
-      const lower = text.toLowerCase();
-      const matchedType = ['Pagoda', 'Viewpoint', 'Hotel', 'day Market', 'ktv', 'Night bar'].find(
-        (type) => type.toLowerCase().includes(lower)
+      const matchedType = attractionTypes.find(
+        (type) => type.toLowerCase() !== 'all' && type.toLowerCase().includes(lower)
       );
       setFilterType(matchedType || null);
     }
@@ -80,14 +87,25 @@ const MapScreen = () => {
     setSearchQuery(selected || '');
   };
 
-  const filteredAttractions = attractions.filter((place) => {
-    const matchType = !filterType || place.type === filterType;
-    const matchSearch =
-      searchQuery.trim() === '' ||
-      place.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      place.type.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchType && matchSearch;
-  });
+  // ✅ Fuzzy search with Fuse.js
+  const filteredAttractions = useMemo(() => {
+    let results = attractions;
+
+    if (searchQuery.trim() !== '') {
+      const fuse = new Fuse(attractions, {
+        keys: ['title', 'type', 'description'],
+        threshold: 0.3,
+      });
+      const fuseResults = fuse.search(searchQuery.trim());
+      results = fuseResults.map((result) => result.item);
+    }
+
+    if (filterType) {
+      results = results.filter((place) => place.type === filterType);
+    }
+
+    return results;
+  }, [searchQuery, filterType, attractions]);
 
   const onMarkerPress = (place) => {
     setSelectedPlace(place);
@@ -162,7 +180,7 @@ const MapScreen = () => {
           style={styles.searchBox}
         />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-          {['All', 'Pagoda', 'Viewpoint', 'Hotel', 'day Market', 'ktv', 'Night bar'].map((type) => (
+          {attractionTypes.map((type) => (
             <TouchableOpacity key={type} onPress={() => handleFilterPress(type)}>
               <Text
                 style={[
@@ -225,9 +243,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   searchBox: {
-    height: 40,
+    height: 50,
     backgroundColor: 'rgba(255,255,255,0.6)',
-    borderRadius: 20,
+    borderRadius: 50,
     paddingHorizontal: 15,
     fontSize: 14,
     borderColor: '#ddd',

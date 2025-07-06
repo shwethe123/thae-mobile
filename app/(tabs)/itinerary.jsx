@@ -1,7 +1,9 @@
+import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import Fuse from 'fuse.js';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { authStyles } from '../../assets/styles/auth.styles';
 
 const ItineraryScreen = () => {
   const router = useRouter();
@@ -29,11 +32,12 @@ const ItineraryScreen = () => {
     longitude: '',
     description: '',
   });
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchAttractions = async () => {
     try {
       setLoading(true);
-      const res = await fetch('http://192.168.16.32:5000/api/attractions');
+      const res = await fetch('https://h-submit-backend-shwethe.onrender.com/api/attractions');
       const data = await res.json();
       setAttractionsData(data);
     } catch {
@@ -49,7 +53,7 @@ const ItineraryScreen = () => {
 
   const incrementView = async (id) => {
     try {
-      await fetch(`http://192.168.16.32:5000/api/attractions/${id}/view`, {
+      await fetch(`https://h-submit-backend-shwethe.onrender.com/api/attractions/${id}/view`, {
         method: 'POST',
       });
       fetchAttractions();
@@ -78,7 +82,7 @@ const ItineraryScreen = () => {
         formData.append('image', { uri: imageUri, name: fileName, type: `image/${ext}` });
       }
 
-      const resp = await fetch('http://192.168.16.32:5000/api/attractions', {
+      const resp = await fetch('https://h-submit-backend-shwethe.onrender.com/api/attractions', {
         method: 'POST',
         body: formData,
       });
@@ -94,22 +98,37 @@ const ItineraryScreen = () => {
     }
   };
 
-  const renderAttraction = (place) => (
-    <TouchableOpacity
-      key={place._id}
-      style={styles.card}
-      onPress={() => {
-        incrementView(place._id);
-        router.push(`/attraction/${place._id}`);
-      }}
-    >
-      <Image source={{ uri: place.image }} style={styles.image} />
-      <View style={styles.info}>
-        <Text style={styles.title}>{place.title}</Text>
-        <Text style={styles.type}>{place.type}</Text>
+  // ✅ Fuzzy filtered attractions
+  const filteredAttractions = useMemo(() => {
+    if (!searchQuery.trim()) return attractionsData;
+    const fuse = new Fuse(attractionsData, {
+      keys: ['title', 'type', 'description'],
+      threshold: 0.3,
+    });
+    return fuse.search(searchQuery).map((r) => r.item);
+  }, [searchQuery, attractionsData]);
+
+const renderAttraction = (place) => (
+  <TouchableOpacity
+    key={place._id}
+    style={styles.card}
+    onPress={() => {
+      incrementView(place._id);
+      router.push(`/attraction/${place._id}`);
+    }}
+  >
+    <Image source={{ uri: place.image }} style={styles.image} />
+    <View style={styles.info}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <View>
+          <Text style={styles.title}>{place.title}</Text>
+          <Text style={styles.type}>{place.type}</Text>
+        </View>
+        <Feather name="chevron-right" size={25} color="#999" />
       </View>
-    </TouchableOpacity>
-  );
+    </View>
+  </TouchableOpacity>
+);
 
   if (loading) {
     return (
@@ -122,7 +141,14 @@ const ItineraryScreen = () => {
 
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView style={styles.container}>
+      <ScrollView style={authStyles.container}>
+                      {/* 🔍 Search Box */}
+      <TextInput
+        style={styles.searchBox}
+        placeholder="🔍 Search attractions..."
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+      />
         {/* 🔥 Popular Section */}
         {attractionsData.length > 0 && (
           <View style={styles.popularCard}>
@@ -153,7 +179,7 @@ const ItineraryScreen = () => {
 
         {/* 📍 All List */}
         <Text style={styles.header}>📍 All Attractions</Text>
-        {attractionsData.map(renderAttraction)}
+          {filteredAttractions.map(renderAttraction)}
       </ScrollView>
 
       {/* ➕ Insert Button */}
@@ -216,10 +242,23 @@ const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff'
   },
+    searchBox: {
+    height: 50,
+    borderRadius: 50,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+    backgroundColor: '#fff',
+    fontSize: 15,
+    marginTop: 10,
+    marginLeft: 10,
+    marginRight: 10
+  },
   popularCard: {
     marginBottom: 20,
     backgroundColor: '#fff0ea',
-    borderRadius: 12,
+    // borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 6,
   },
@@ -267,10 +306,15 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     backgroundColor: '#f9f9f9',
-    marginBottom: 12,
+    margin: 12,
     borderRadius: 12,
     overflow: 'hidden',
     elevation: 2,
+  },
+  info: {
+  flex: 1,
+  padding: 10,
+  justifyContent: 'center',
   },
   image: { width: 100, height: 100 },
   info: { flex: 1, padding: 10, justifyContent: 'center' },
