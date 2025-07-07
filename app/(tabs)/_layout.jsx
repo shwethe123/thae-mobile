@@ -58,11 +58,11 @@ const TabsLayout = () => {
         }}
       />
       <Tabs.Screen
-        name="post"
+        name="jobSearch"
         options={{
-          title: 'Post',
+          title: 'Job search',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="add-circle-outline" size={size} color={color} />
+            <Ionicons name="briefcase-outline" size={size} color={color} />
           ),
         }}
       />
