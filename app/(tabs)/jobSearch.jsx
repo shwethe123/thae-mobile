@@ -1,9 +1,11 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Image,
+  RefreshControl,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -14,10 +16,13 @@ import {
 import * as Animatable from 'react-native-animatable';
 import MapView, { Marker } from 'react-native-maps';
 
-// --- Theme Colors (Move to a central file later) ---
+// --- Configuration ---
+const API_BASE_URL = 'http://192.168.16.32:5000'; // Your API Server IP
+
+// --- Theme Colors ---
 const COLORS = {
-  primary: '#1976D2', // A professional blue
-  secondary: '#FFC107', // An accent yellow
+  primary: '#1976D2',
+  secondary: '#FFC107',
   background: '#F5F5F5',
   surface: '#FFFFFF',
   text: '#212121',
@@ -26,80 +31,113 @@ const COLORS = {
   white: '#FFFFFF',
 };
 
-// --- Dummy Data (Replace with your actual API data) ---
-const employersPosts = [
-  { id: 'e1', company: 'Creative Web Solutions', role: 'React Native Developer', location: 'Yangon', lat: 16.8409, lng: 96.1735, image: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' },
-  { id: 'e2', company: 'Gusto Cafe', role: 'Barista & Waiter', location: 'Mandalay', lat: 21.9587, lng: 96.0891, image: 'https://i.pravatar.cc/150?u=a042581f4e29026705d' },
-];
-
-const jobSeekersPosts = [
-  { id: 'js1', name: 'John Doe', skill: 'Senior Plumber - 5 Yrs Exp', location: 'Yangon', rating: 4.8, image: 'https://i.pravatar.cc/150?u=a042581f4e29026706d' },
-  { id: 'js2', name: 'Jane Smith', skill: 'Graphic Designer (UI/UX)', location: 'Bago', rating: 5.0, image: 'https://i.pravatar.cc/150?u=a042581f4e29026707d' },
-];
-
 // --- Reusable Components ---
+const PostCard = ({ item, type, onpress }) => {
+    // Handle image URL from backend. If it's a relative path, prepend the base URL.
+    const imageUrl = item.image && item.image.startsWith('http') ? item.image : `${API_BASE_URL}/${item.image}`;
 
-const PostCard = ({ item, type, onpress }) => (
-    <TouchableOpacity onPress={onpress}>
-      <Animatable.View animation="fadeInUp" duration={500} style={styles.card}>
-        <Image source={{ uri: item.image }} style={styles.cardImage} />
-        <View style={styles.cardContent}>
-          {type === 'employer' ? (
-            <>
-              <Text style={styles.cardTitle}>{item.role}</Text>
-              <Text style={styles.cardSubtitle}>{item.company}</Text>
-            </>
-          ) : (
-            <>
-              <Text style={styles.cardTitle}>{item.name}</Text>
-              <Text style={styles.cardSubtitle}>{item.skill}</Text>
-            </>
-          )}
-          <View style={styles.locationRow}>
-            <Ionicons name="location-sharp" size={16} color={COLORS.textSecondary} />
-            <Text style={styles.locationText}>{item.location}</Text>
-          </View>
-        </View>
-        <Ionicons name="chevron-forward" size={24} color={COLORS.primary} style={{alignSelf:"center"}} />
-      </Animatable.View>
-    </TouchableOpacity>
-);
+    return (
+        <TouchableOpacity onPress={onpress}>
+          <Animatable.View animation="fadeInUp" duration={500} style={styles.card}>
+            <Image source={{ uri: imageUrl }} style={styles.cardImage} />
+            <View style={styles.cardContent}>
+              {type === 'employer' ? (
+                <>
+                  <Text style={styles.cardTitle} numberOfLines={1}>{item.jobTitle}</Text>
+                  <Text style={styles.cardSubtitle}>{item.companyName}</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.cardTitle} numberOfLines={1}>{item.fullName}</Text>
+                  <Text style={styles.cardSubtitle}>{item.skill}</Text>
+                </>
+              )}
+              <View style={styles.locationRow}>
+                <Ionicons name="location-sharp" size={16} color={COLORS.textSecondary} />
+                <Text style={styles.locationText}>{item.location}</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={COLORS.primary} style={{alignSelf:"center"}} />
+          </Animatable.View>
+        </TouchableOpacity>
+    )
+};
 
 const JobSearchScreen = () => {
-  const [activeTab, setActiveTab] = useState('employer'); // 'employer' or 'seeker'
-  const [viewMode, setViewMode] = useState('list'); // 'list' or 'map'
+  const [activeTab, setActiveTab] = useState('employer');
+  const [viewMode, setViewMode] = useState('list');
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+
   const router = useRouter();
 
-  const handleCreatePost = () => {
-      // Navigate to a new screen for creating a post or profile
-      if (activeTab === 'employer') {
-          router.push('/create-job-post');
-      } else {
-          router.push('/create-seeker-profile');
+  const fetchPosts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const type = activeTab === 'employer' ? 'employer' : 'seeker';
+      const response = await fetch(`${API_BASE_URL}/api/job-posts?type=${type}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch data from server.');
       }
-  }
+      const data = await response.json();
+      setPosts(data);
+    } catch (err) {
+      setError(err.message);
+      setPosts([]); // Clear posts on error
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    fetchPosts();
+  }, [fetchPosts]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchPosts().then(() => setRefreshing(false));
+  }, [fetchPosts]);
+
+  const handleCreatePost = () => {
+    if (activeTab === 'employer') {
+      router.push('/create-job-post');
+    } else {
+      router.push('/create-seeker-profile');
+    }
+  };
 
   const renderContent = () => {
-    const data = activeTab === 'employer' ? employersPosts : jobSeekersPosts;
+    if (loading && !refreshing) {
+        return <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 50 }} />;
+    }
+
+    if (error) {
+        return <Text style={styles.errorText}>Error: {error}</Text>;
+    }
+    
+    if (posts.length === 0) {
+        return <Text style={styles.emptyText}>No posts found. Create one!</Text>;
+    }
 
     if (viewMode === 'map') {
       return (
         <MapView
           style={styles.map}
-          initialRegion={{
-            latitude: 19.8661, // Center of Myanmar
-            longitude: 96.0891,
-            latitudeDelta: 8,
-            longitudeDelta: 8,
-          }}
+          initialRegion={{ latitude: 19.8661, longitude: 96.0891, latitudeDelta: 8, longitudeDelta: 8 }}
         >
-          {data.map(item => (
-            <Marker
-              key={item.id}
-              coordinate={{ latitude: item.lat, longitude: item.lng }}
-              title={activeTab === 'employer' ? item.role : item.name}
-              description={activeTab === 'employer' ? item.company : item.skill}
-            />
+          {posts.map(item => (
+            item.coordinates && (
+              <Marker
+                key={item._id}
+                coordinate={{ latitude: item.coordinates.lat, longitude: item.coordinates.lng }}
+                title={activeTab === 'employer' ? item.jobTitle : item.fullName}
+                description={activeTab === 'employer' ? item.companyName : item.skill}
+                onPress={() => router.push(`/job-details/${item._id}?type=${activeTab}`)}
+              />
+            )
           ))}
         </MapView>
       );
@@ -107,25 +145,25 @@ const JobSearchScreen = () => {
 
     return (
       <FlatList
-        data={data}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <PostCard item={item} type={activeTab} onpress={() => router.push(`/job-details/${item.id}?type=${activeTab}`)}/>}
+        data={posts}
+        keyExtractor={(item) => item._id}
+        renderItem={({ item }) => (
+          <PostCard item={item} type={activeTab} onpress={() => router.push(`/job-details/${item._id}?type=${activeTab}`)} />
+        )}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
       />
     );
   };
-  
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header Section */}
+      {/* Header, Search, Tabs are the same */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Job Hub</Text>
-        <TouchableOpacity>
-            <Ionicons name="notifications-outline" size={26} color={COLORS.text} />
-        </TouchableOpacity>
+        <TouchableOpacity><Ionicons name="notifications-outline" size={26} color={COLORS.text} /></TouchableOpacity>
       </View>
 
-      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color={COLORS.textSecondary} />
         <TextInput
@@ -135,29 +173,23 @@ const JobSearchScreen = () => {
         />
       </View>
 
-      {/* Tab Switcher */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'employer' && styles.activeTab]}
           onPress={() => setActiveTab('employer')}
         >
           <MaterialIcons name="business-center" size={20} color={activeTab === 'employer' ? COLORS.white : COLORS.primary} />
-          <Text style={[styles.tabText, activeTab === 'employer' && styles.activeTabText]}>
-            Find a Job
-          </Text>
+          <Text style={[styles.tabText, activeTab === 'employer' && styles.activeTabText]}>Find a Job</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'seeker' && styles.activeTab]}
           onPress={() => setActiveTab('seeker')}
         >
           <MaterialIcons name="person-search" size={20} color={activeTab === 'seeker' ? COLORS.white : COLORS.primary} />
-          <Text style={[styles.tabText, activeTab === 'seeker' && styles.activeTabText]}>
-            Find Talent
-          </Text>
+          <Text style={[styles.tabText, activeTab === 'seeker' && styles.activeTabText]}>Find Talent</Text>
         </TouchableOpacity>
       </View>
 
-      {/* View Mode Switcher */}
       {activeTab === 'employer' && (
         <View style={styles.viewModeContainer}>
             <TouchableOpacity onPress={() => setViewMode('list')} style={[styles.viewModeButton, viewMode === 'list' && styles.activeViewMode]}>
@@ -172,7 +204,7 @@ const JobSearchScreen = () => {
       {/* Content Area */}
       {renderContent()}
 
-      {/* Floating Action Button (FAB) */}
+      {/* FAB */}
       <TouchableOpacity style={styles.fab} onPress={handleCreatePost}>
         <Ionicons name="add" size={30} color={COLORS.white} />
       </TouchableOpacity>
@@ -197,7 +229,7 @@ const styles = StyleSheet.create({
   viewModeContainer: { alignSelf: 'center', flexDirection: 'row', backgroundColor: COLORS.border, borderRadius: 12, marginBottom: 10 },
   viewModeButton: { padding: 10 },
   activeViewMode: { backgroundColor: COLORS.white, borderRadius: 10 },
-  card: { flexDirection: 'row', backgroundColor: COLORS.surface, borderRadius: 12, padding: 12, marginBottom: 16, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 2 } },
+  card: { flexDirection: 'row', backgroundColor: COLORS.surface, borderRadius: 12, padding: 12, marginBottom: 16, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 2 }, alignItems: 'center' },
   cardImage: { width: 60, height: 60, borderRadius: 30 },
   cardContent: { flex: 1, marginLeft: 16, justifyContent: 'center' },
   cardTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.text },
@@ -205,5 +237,7 @@ const styles = StyleSheet.create({
   locationRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
   locationText: { marginLeft: 4, color: COLORS.textSecondary },
   fab: { position: 'absolute', bottom: 30, right: 20, width: 60, height: 60, borderRadius: 30, backgroundColor: COLORS.secondary, justifyContent: 'center', alignItems: 'center', elevation: 8, shadowColor: '#000', shadowOpacity: 0.2, shadowOffset: { width: 0, height: 4 } },
-  map: { flex: 1 }
+  map: { flex: 1 },
+  errorText: { textAlign: 'center', color: 'red', marginTop: 50 },
+  emptyText: { textAlign: 'center', color: COLORS.textSecondary, marginTop: 50 }
 });
