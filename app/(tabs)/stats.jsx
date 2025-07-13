@@ -1,11 +1,11 @@
 import { Text, View } from 'react-native'
 
-const Index = () => {
+const Stats = () => {
   return (
     <View>
-      <Text>Index</Text>
+      <Text>Stats</Text>
     </View>
   )
 }
 
-export default Index
+export default Stats

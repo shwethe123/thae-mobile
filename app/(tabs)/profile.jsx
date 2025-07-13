@@ -1,4 +1,4 @@
-import { SignedOut } from '@clerk/clerk-expo';
+import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import {
@@ -12,10 +12,12 @@ import {
 
 const ProfilePage = () => {
   const router = useRouter();
+  const { signOut } = useAuth(); // ✅ Clerk auth hook
 
   const handleLogout = async () => {
     try {
-      await SignedOut();
+      await signOut(); // ✅ Call signOut instead of SignedOut
+      router.replace('/'); // optionally redirect to home/login screen
     } catch (error) {
       console.error("Logout failed", error);
     }
@@ -52,7 +54,7 @@ const ProfilePage = () => {
 
         <TouchableOpacity
           style={styles.actionItem}
-          onPress={() => router.push('/saved')} // ✅ navigate to saved
+          onPress={() => router.push('/saved')}
         >
           <Ionicons name="bookmark-outline" size={20} color="#333" />
           <Text style={styles.actionText}>Saved Places</Text>
@@ -74,7 +76,6 @@ const ProfilePage = () => {
 };
 
 export default ProfilePage;
-
 
 const styles = StyleSheet.create({
   container: {

@@ -49,29 +49,29 @@ const TabsLayout = () => {
         }}
       />
       <Tabs.Screen
-        name="map"
+        name="community" // File name will be community.jsx
         options={{
-          title: 'Map',
+          title: 'Community',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="map-outline" size={size} color={color} />
+            <Ionicons name="chatbubbles-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="jobSearch"
+        name="stats"
         options={{
-          title: 'Job search',
+          title: 'stats',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="bar-chart-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="my-jobs"
+        options={{
+          title: 'my-jobs',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="briefcase-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="itinerary"
-        options={{
-          title: 'Trip',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar-outline" size={size} color={color} />
           ),
         }}
       />

@@ -1,10 +1,10 @@
-import { View, Text, Alert, KeyboardAvoidingView, Platform, ScrollView, Image, TextInput, TouchableOpacity } from 'react-native'
-import React, { useState } from 'react'
-import { useRouter } from 'expo-router'
 import { useSignIn } from '@clerk/clerk-expo';
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { authStyles } from '../../assets/styles/auth.styles';
 import { COLORS } from '../../constants/colors';
-import {Ionicons} from "@expo/vector-icons"
 
 const SignInScreen = () => {
     const router = useRouter();

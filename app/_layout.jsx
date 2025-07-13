@@ -2,8 +2,8 @@ import { ClerkProvider, useAuth } from '@clerk/clerk-expo';
 import { Slot, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { CartProvider } from '../contexts/CartContext'; // Make sure this path is correct
-import { ThemeProvider } from '../contexts/ThemeContext';
+// import { CartProvider } from '../contexts/CartContext'; 
+// import { ThemeProvider } from '../contexts/ThemeContext';
 import { tokenCache } from '../lib/tokenCache'; // Make sure this path is correct
 
 const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
@@ -17,7 +17,7 @@ const InitialLayout = () => {
       if (isSignedIn) {
         router.replace('/(tabs)');
       } else {
-        router.replace('/(auth)/login');
+        router.replace('/sign-in');
       }
     }
   }, [isLoaded, isSignedIn]);
@@ -29,12 +29,12 @@ export default function RootLayout() {
   return (
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <ThemeProvider>
+        {/* <ThemeProvider> */}
           {/* 👇 THIS IS THE MOST IMPORTANT PART 👇 */}
-          <CartProvider>
+          {/* <CartProvider> */}
               <InitialLayout />
-          </CartProvider>
-        </ThemeProvider>
+          {/* </CartProvider> */}
+        {/* </ThemeProvider> */}
       </GestureHandlerRootView>
     </ClerkProvider>
   );

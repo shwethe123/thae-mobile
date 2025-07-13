@@ -1,11 +1,11 @@
 // constants/themes.js
 
 export const blueTheme = {
-  primary: "#1E88E5",       // vivid blue
-  background: "#F5F5F5",    // Use a very light gray instead of pure white
-  text: "#121212",          // Dark text for readability
-  textSecondary: "#6C757D", // Lighter text for secondary info
-  border: "#E0E0E0",        // Soft border
+  primary: "#1E88E5",
+  background: "#F5F5F5",
+  text: "#121212",
+  textSecondary: "#6C757D", // ✅ more design flexibility
+  border: "#E0E0E0",
   white: "#FFFFFF",
   card: "#FFFFFF",
   shadow: "#000000",

@@ -87,13 +87,12 @@ const roseGoldTheme = {
 };
 
 const blueTheme = {
-  primary: "#1E88E5",       // vivid blue
-  // background: "#E3F2FD",    // light blue background
-  background: "#ffff",    // light blue background
-  text: "#0D47A1",          // dark blue text
-  border: "#BBDEFB",        // soft blue border
+  primary: "#1E88E5",
+  background: ["#E3F2FD", "#BBDEFB", "#90CAF9"], // gradient background array
+  text: "#0D47A1",
+  border: "#BBDEFB",
   white: "#FFFFFF",
-  textLight: "#64B5F6",     // lighter blue text
+  textLight: "#64B5F6",
   card: "#FFFFFF",
   shadow: "#000000",
 };
@@ -125,4 +124,4 @@ export const THEMES = {
 };
 
 // 👇 change this to switch theme
-export const COLORS = THEMES.blue;
+export const COLORS = THEMES.roseGold;
