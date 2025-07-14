@@ -201,4 +201,59 @@ export const homeStyles = StyleSheet.create({
   selectedShopFilterText: {
     color: COLORS.white,
   },
+    searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginVertical: 8,
+    marginHorizontal: 20,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: COLORS.text,
+    paddingVertical: 12,
+    marginLeft: 8,
+  },
+  statusFilterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 20,
+    paddingBottom: 16, // Changed from paddingVertical
+  },
+  statusFilterButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  selectedStatusFilter: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  statusFilterText: {
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  selectedStatusFilterText: {
+    color: COLORS.white,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+    marginTop: 50,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: COLORS.textLight,
+    textAlign: 'center',
+    marginTop: 16,
+  },
 });

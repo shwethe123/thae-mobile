@@ -32,30 +32,46 @@ export const getDummyJobs = async () => {
 export const dummyPosts = [
   {
     id: 'p1',
+    authorId: 'user_123', // This is our current user
     author: {
-      name: 'John Doe',
+      name: 'John Doe', // We'll get this from Clerk dynamically
       avatar: 'https://i.pravatar.cc/150?img=12',
     },
     timestamp: '2h ago',
     content: 'Just found a much more efficient way to install the new AC units. We can cut down installation time by almost 20% by prepping the brackets beforehand. Happy to show anyone who is interested!',
-    image: 'https://images.unsplash.com/photo-1542202275-5353634571a3?q=80&w=2070', // Example image
+    image: 'https://images.unsplash.com/photo-1542202275-5353634571a3?q=80&w=2070',
     likes: 15,
     commentsCount: 4,
   },
   {
     id: 'p2',
+    authorId: 'user_456', // This is another user
     author: {
       name: 'Jane Smith',
       avatar: 'https://i.pravatar.cc/150?img=5',
     },
     timestamp: '8h ago',
     content: 'Suggestion: Could we get better quality plumbing wrenches? The ones we currently have are starting to slip, which is a safety concern. Investing in a good set would benefit all of us.',
-    image: null, // No image for this post
+    image: null,
     likes: 22,
     commentsCount: 9,
   },
   {
+    id: 'p4', // Add another post from our user
+    authorId: 'user_123',
+    author: {
+        name: 'John Doe',
+        avatar: 'https://i.pravatar.cc/150?img=12',
+    },
+    timestamp: '3d ago',
+    content: 'Quick question: has anyone worked with the new "Quantum-Flow" pipes? Looking for some tips before I start the installation at the new complex tomorrow.',
+    image: null,
+    likes: 8,
+    commentsCount: 2,
+  },
+  {
     id: 'p3',
+    authorId: 'user_789', // Admin user
     author: {
       name: 'Admin',
       avatar: 'https://i.pravatar.cc/150?img=50',
@@ -67,6 +83,7 @@ export const dummyPosts = [
     commentsCount: 12,
   }
 ];
+
 
 // constants/dummyData.js
 
