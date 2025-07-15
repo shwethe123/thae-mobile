@@ -26,7 +26,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// JobCard component
+// JobCard component - This is the full implementation.
 const JobCard = ({ job }) => {
   const router = useRouter();
   const handlePress = () => router.push({ pathname: `/jobs/${job.id}`, params: { jobData: JSON.stringify(job) } });
@@ -70,7 +70,6 @@ const JobCard = ({ job }) => {
 };
 
 
-// Main HomePage component
 const HomePage = () => {
   const { user } = useAuth();
   const [allJobs, setAllJobs] = useState([]);
@@ -90,9 +89,7 @@ const HomePage = () => {
     if (!isRefreshing) setIsLoading(false);
   };
 
-  useEffect(() => {
-    loadJobs();
-  }, []);
+  useEffect(() => { loadJobs(); }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -101,62 +98,90 @@ const HomePage = () => {
     setRefreshing(false);
   }, []);
 
-  const filteredJobs = useMemo(() => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  const baseFilteredJobs = useMemo(() => {
     let jobs = Array.isArray(allJobs) ? allJobs : [];
     if (searchQuery) jobs = jobs.filter(j => j.title.toLowerCase().includes(searchQuery.toLowerCase()));
     if (selectedShop !== 'All') jobs = jobs.filter(j => j.shopName === selectedShop);
-    if (selectedStatus !== 'All') jobs = jobs.filter(j => j.status === selectedStatus);
     return jobs;
-  }, [searchQuery, selectedShop, selectedStatus, allJobs]);
+  }, [allJobs, searchQuery, selectedShop]);
+
+  const countMap = useMemo(() => ({
+      'All': baseFilteredJobs.length,
+      'Pending': baseFilteredJobs.filter(j => j.status === 'Pending').length,
+      'In Progress': baseFilteredJobs.filter(j => j.status === 'In Progress').length,
+      'Completed': baseFilteredJobs.filter(j => j.status === 'Completed').length,
+  }), [baseFilteredJobs]);
+
+  const displayedJobs = useMemo(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    if (selectedStatus === 'All') return baseFilteredJobs;
+    return baseFilteredJobs.filter(j => j.status === selectedStatus);
+  }, [baseFilteredJobs, selectedStatus]);
 
   if (isLoading) {
-    return (<View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color={COLORS.primary} /></View>);
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={[styles.header, { paddingHorizontal: 20 }]}>
+          <View><Text style={styles.headerTitle}>Welcome Back,</Text><Text style={[styles.headerTitle, styles.userName]}>{user?.firstName || 'Worker'}</Text></View>
+          <TouchableOpacity style={styles.notificationButton}><Ionicons name="notifications-outline" size={24} color={COLORS.text} /></TouchableOpacity>
+        </View>
+        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* 👇 The ONE and ONLY ScrollView that wraps ALL content 👇 */}
       <ScrollView
         contentContainerStyle={{ paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* Header */}
         <View style={[styles.header, { paddingHorizontal: 20 }]}>
-          <View>
-            <Text style={styles.headerTitle}>Welcome Back,</Text>
-            <Text style={[styles.headerTitle, styles.userName]}>{user?.firstName || 'Worker'}</Text>
-          </View>
+          <View><Text style={styles.headerTitle}>Welcome Back,</Text><Text style={[styles.headerTitle, styles.userName]}>{user?.firstName || 'Worker'}</Text></View>
           <TouchableOpacity style={styles.notificationButton}><Ionicons name="notifications-outline" size={24} color={COLORS.text} /></TouchableOpacity>
         </View>
         
-        {/* Search and Filters */}
-        <View style={{ paddingHorizontal: 20 }}>
+        <View style={styles.filterCard}>
           <View style={styles.searchContainer}>
             <Ionicons name="search-outline" size={20} color={COLORS.textLight} />
-            <TextInput style={styles.searchInput} placeholder="Search by job title..." value={searchQuery} onChangeText={setSearchQuery} />
+            <TextInput style={styles.searchInput} placeholder="Search jobs by title..." value={searchQuery} onChangeText={setSearchQuery} />
+          </View>
+
+          <View style={styles.shopFilterContainer}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shopFilterScrollView}>
+              <TouchableOpacity style={[styles.shopFilterButton, selectedShop === 'All' && styles.selectedShopFilter]} onPress={() => setSelectedShop('All')}>
+                <Text style={[styles.shopFilterText, selectedShop === 'All' && styles.selectedShopFilterText]}>All Shops</Text>
+              </TouchableOpacity>
+              {(shops || []).map(s => (
+                <TouchableOpacity key={s.id} style={[styles.shopFilterButton, selectedShop === s.name && styles.selectedShopFilter]} onPress={() => setSelectedShop(s.name)}>
+                  <Text style={[styles.shopFilterText, selectedShop === s.name && styles.selectedShopFilterText]}>{s.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         </View>
-        <View style={styles.shopFilterContainer}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shopFilterScrollView}>
-            <TouchableOpacity style={[styles.shopFilterButton, selectedShop === 'All' && styles.selectedShopFilter]} onPress={() => setSelectedShop('All')}><Text style={[styles.shopFilterText, selectedShop === 'All' && styles.selectedShopFilterText]}>All Shops</Text></TouchableOpacity>
-            {(shops || []).map(s => (<TouchableOpacity key={s.id} style={[styles.shopFilterButton, selectedShop === s.name && styles.selectedShopFilter]} onPress={() => setSelectedShop(s.name)}><Text style={[styles.shopFilterText, selectedShop === s.name && styles.selectedShopFilterText]}>{s.name}</Text></TouchableOpacity>))}
-          </ScrollView>
-        </View>
-        
-        <View style={[styles.statusFilterContainer, {paddingHorizontal: 20}]}>
-          {statuses.map(status => (<TouchableOpacity key={status} style={[styles.statusFilterButton, selectedStatus === status && styles.selectedStatusFilter]} onPress={() => setSelectedStatus(status)}><Text style={[styles.statusFilterText, selectedStatus === status && styles.selectedStatusFilterText]}>{status}</Text></TouchableOpacity>))}
+
+        <View style={styles.statusFilterContainer}>
+          {statuses.map(status => (
+            <TouchableOpacity key={status} style={[styles.statusFilterButton, selectedStatus === status && styles.selectedStatusFilter]} onPress={() => setSelectedStatus(status)}>
+              <Text style={[styles.statusFilterText, selectedStatus === status && styles.selectedStatusFilterText]}>
+                {`${status} (${countMap[status]})`}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {/* Job List or Empty State */}
         <View style={{ paddingHorizontal: 20, minHeight: 300 }}>
-          {filteredJobs.length > 0 ? (
-            filteredJobs.map(job => <JobCard key={job.id} job={job} />)
+          {displayedJobs.length > 0 ? (
+            displayedJobs.map(job => <JobCard key={job.id} job={job} />)
           ) : (
             <View style={styles.emptyStateContainer}>
-              <Ionicons name="sad-outline" size={64} color={COLORS.textLight} />
-              <Text style={styles.emptyStateText}>No jobs found matching your criteria. Try adjusting your filters.</Text>
+              <Ionicons name="file-tray-outline" size={64} color={COLORS.textLight} />
+              <Text style={styles.emptyStateText}>No jobs found matching your criteria.</Text>
             </View>
           )}
         </View>

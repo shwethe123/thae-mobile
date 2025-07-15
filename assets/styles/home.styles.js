@@ -43,30 +43,31 @@ export const homeStyles = StyleSheet.create({
 
   statsContainer: {
     flexDirection: 'row',
-    gap: 16,
-    marginBottom: 24,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 8,
   },
-
   statCard: {
     flex: 1,
     backgroundColor: COLORS.card,
-    padding: 16,
-    borderRadius: 16,
+    padding: 12,
+    borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
+    marginHorizontal: 4, // Add small margin between cards
   },
-
   statValue: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: COLORS.primary,
   },
-
   statLabel: {
-    fontSize: 14,
+    fontSize: 12,
     color: COLORS.textLight,
     marginTop: 4,
+    fontWeight: '500',
   },
 
   sectionTitleContainer: {
@@ -256,4 +257,5 @@ export const homeStyles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
   },
+  
 });
